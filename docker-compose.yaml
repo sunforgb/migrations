@@ -1,0 +1,68 @@
+version: '3.9'
+
+services:
+  pg-db:
+    container_name: postgres
+    restart: always
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./compose/postgres/Dockerfile
+    environment:
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - ./compose/data-postgres:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      bridge:
+        ipv4_address: 172.19.0.4
+
+# TODO healthcheck на контейнер
+  django:
+    depends_on: [pg-db]
+    container_name: backend_django
+    restart: always
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./compose/backend/Dockerfile
+    volumes:
+      - ./backend:/backend
+    ports:
+      - 8000:8000
+    expose:
+      - 8000
+    networks:
+      bridge:
+        ipv4_address: 172.19.0.5
+
+  vue:
+    depends_on: [pg-db, django]
+    container_name: frontend_vue
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./compose/frontend/Dockerfile
+    environment:
+       NODE_OPTIONS: "--openssl-legacy-provider"
+       DANGEROUSLY_DISABLE_HOST_CHECK: "true"
+    volumes:
+       - ./frontend:/frontend
+    ports:
+      - 8080:8080
+    expose:
+      - 8080
+    networks:
+      bridge:
+        ipv4_address: 172.19.0.6
+
+networks:
+  bridge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
+          gateway: 172.19.0.1
