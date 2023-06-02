@@ -34,24 +34,22 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         dict_ = q
         if (type(q) != type(dict())):
             dict_ = {k: q.getlist(k) if len(q.getlist(k))>1 else v for k, v in q.items()}
-        print(dict_)
         user_info = request.data.pop('user')
-        print(user_info)
         contact_info = request.data.pop('contact')
-        print(contact_info)
         serializer_employee = EmployeeSerializer(data=request.data)
         serializer_user = MyUserSerializer(data=user_info)
         serializer_phone = PhoneSerializer(data=contact_info)
-        if serializer_user.is_valid(raise_exception=True):
+        myuser = None
+        if serializer_user.is_valid():
             myuser = MyUser.objects.create_user(**serializer_user.data)
         else:
             return Response({'message': 'Cant create user'}, status=status.HTTP_400_BAD_REQUEST)
-        if serializer_phone.is_valid(raise_exception=True):
-            phone = Phone.objects.get_or_create(**serializer_phone.data)
-        else:
+        phone, created = Phone.objects.get_or_create(**serializer_phone.initial_data)
+        if phone is None:
             MyUser.objects.delete(id=myuser.id)
             return Response({'message': 'Cant create phone'}, status=status.HTTP_400_BAD_REQUEST)
         if serializer_employee.is_valid(raise_exception=True):
+            print(phone)
             employee = Employee.objects.create(**serializer_employee.data, user=myuser, contact=phone)
             phone.save()
             myuser.save()
@@ -65,7 +63,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         pk = self.kwargs.get('pk')
         if pk is not None:
-            employee = employee.objects.get(id=pk)
+            employee = Employee.objects.get(id=pk)
             if employee is not None:
                 request_expirience = request.data.get('expirience')
                 request_salary = request.data.get('salary')
@@ -138,23 +136,17 @@ class MigrantViewSet(viewsets.ModelViewSet):
         serializer_phone = PhoneSerializer(data=phone_info)
         serializer_doc = DocSerializer(data=doc_info)
         serializer_migrant = MigrantSerializer(data=request.data)
-        if not serializer_citizen.is_valid():
-            return Response({'message': 'Citizenship is not valid'}, status=status.HTTP_400_BAD_REQUEST)
-        if not serializer_phone.is_valid():
-            return Response({'message': 'Phone is not valid'}, status=status.HTTP_400_BAD_REQUEST)
-        if not serializer_doc.is_valid():
-            return Response({'message': 'Doc is not valid'}, status=status.HTTP_400_BAD_REQUEST)
-        if not serializer_migrant.is_valid():
-            return Response({'message': 'Migrant info is not valid'}, status=status.HTTP_400_BAD_REQUEST)
-        citizen = Citizenship.objects.get_or_create(**serializer_citizen)
-        phone = Phone.objects.get_or_create(**serializer_phone)
-        doc = Doc_migr_pers.objects.get_or_create(**serializer_doc)
-        migrant = Migrant.objects.create(**serializer_migrant, citizenship=citizen, contact=phone, document=doc)
-        citizen.save()
-        phone.save()
-        doc.save()
-        migrant.save()
-        return Response(serializer_migrant.data, status.HTTP_201_CREATED)
+        citizen, creat = Citizenship.objects.get_or_create(**serializer_citizen.initial_data)
+        if serializer_migrant.is_valid():
+            phone, create = Phone.objects.get_or_create(**serializer_phone.initial_data)
+            doc, created = Doc_migr_pers.objects.get_or_create(**serializer_doc.initial_data)
+            migrant = Migrant.objects.create(**serializer_migrant.data, citizenship=citizen, contact=phone, document=doc)
+            citizen.save()
+            phone.save()
+            doc.save()
+            migrant.save()
+            return Response(serializer_migrant.data, status.HTTP_201_CREATED)
+        return Response({'message': 'Migrant info is not valid'}, status=status.HTTP_400_BAD_REQUEST)
     
     def partial_update(self, request,*args, **kwargs):
         pk = self.kwargs.get('pk')

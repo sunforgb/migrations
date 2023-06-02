@@ -31,8 +31,8 @@ class MyUserSerializerList(serializers.ModelSerializer):
                   'department']
 
 class EmployeeSerializerList(serializers.ModelSerializer):
-    contact = PhoneSerializer(many=True)
-    user = MyUserSerializerList(many=True)
+    contact = PhoneSerializer(many=False)
+    user = MyUserSerializerList(many=False)
 
     class Meta:
         model = Employee
@@ -49,7 +49,7 @@ class CitizenshipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Citizenship
-        fields = ['code','name']
+        fields = ['code', 'name']
 
 class DocSerializer(serializers.ModelSerializer):
 
