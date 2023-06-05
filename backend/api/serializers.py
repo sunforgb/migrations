@@ -8,7 +8,7 @@ class PhoneSerializer(serializers.ModelSerializer):
         fields = ['number']
 
 class DepartmentSerializer(serializers.ModelSerializer):
-    contact = PhoneSerializer(many=True)
+    contact = PhoneSerializer(many=False)
 
     class Meta:
         model = Department
@@ -58,9 +58,9 @@ class DocSerializer(serializers.ModelSerializer):
         fields = ['serial_number', 'issued_by', 'issued_when', 'expires_when']
 
 class MigrantSerializerList(serializers.ModelSerializer):
-    contact = PhoneSerializer(many=True)
-    citizenship = CitizenshipSerializer(many=True)
-    document = DocSerializer(many=True)
+    contact = PhoneSerializer(many=False)
+    citizenship = CitizenshipSerializer(many=False)
+    document = DocSerializer(many=False)
     class Meta:
         model = Migrant
         fields = ['name', 'address', 'birthday',
@@ -75,12 +75,12 @@ class MigrantSerializer(serializers.ModelSerializer):
 
 
 class RegistrationStatemenetSerializerList(serializers.ModelSerializer):
-    department = DepartmentSerializer(many=True)
-    person = MigrantSerializerList(many=True)
+    department = DepartmentSerializer(many=False)
+    person = MigrantSerializerList(many=False)
 
     class Meta:
         model = Registration_Statement
-        fields = ['department', 'person', 'date', 'status']
+        fields = ['id','department', 'person', 'date', 'status']
 
 class RegistrationStatementSerializer(serializers.ModelSerializer):
 
