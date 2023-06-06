@@ -1,10 +1,11 @@
 <template>
     <v-container fluid>
-        <RegrStatements></RegrStatements>
-        <UnRegrStatements></UnRegrStatements>
+        <RegrStatements v-if="logged_in"></RegrStatements>
+        <UnRegrStatements v-if="logged_in"></UnRegrStatements>
     </v-container>
 </template>
 <script>
+import axios from 'axios';
 import RegrStatements from '../components/RegrStatements.vue';
 import UnRegrStatements from '../components/UnRegrStatements.vue';
 export default {
@@ -15,11 +16,25 @@ export default {
     },
     data () {
         return {
-            type: ""
+            type: "",
+            logged_in: false,
+            email: ""
         }
     },
     beforeCreate() {
         this.type = this.$store.state.user_type;
+        if (this.$store.getters.getAccessToken){
+            axios.get('/api/users/me/').then((response) => {
+                if (response.data.email){
+                    this.logged_in = true
+                    this.email = response.data.email
+                }
+            }).catch(error => {
+                this.logged_in = false
+                console.log("Not authorized");
+                console.log(error);
+            })
+        }
     }
 }
 </script>

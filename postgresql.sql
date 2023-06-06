@@ -154,8 +154,63 @@ group by address, number;
 
 
 create or replace procedure report_registration_statement()
+LANGUAGE plpython3u
+AS $$
+    queryTemplate = """
+        COPY (SELECT * from reg_state) TO {file} CSV HEADER DELIMITER {tmp}
+    """
+    query = queryTemplate.format(file="'/tmp/reg_state_report.csv'", tmp="'|'")
+    plan = plpy.prepare(query)
+    plpy.execute(plan);
+$$;
+
+CREATE VIEW unreg_state AS SELECT address, number, count(person_id)
+FROM api_unregistration_statement
+JOIN api_department ON (department_id = api_department.id)
+JOIN api_phone ON (api_department.contact_id = api_phone.id)
+GROUP BY address, number;
+
+create or replace procedure report_unregistration_statement()
+LANGUAGE plpython3u
+AS $$
+    queryTemplate = """
+        COPY (SELECT * from unreg_state) TO {file} CSV HEADER DELIMITER {tmp}
+    """
+    query = queryTemplate.format(file="'/tmp/unreg_state_report.csv'", tmp="'|'")
+    plan = plpy.prepare(query)
+    plpy.execute(plan)
+$$;
+
+/* Функция с транзакцией которая одобряет документ и переводит гражданина в статус registered
+В случае ошибки произойдет ROLLBACK на Exception и изменения не сохранятся */
+create or replace function update_reg_status(a integer) RETURNS INT
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    execute format('COPY (SELECT * FROM reg_state) TO %L CSV HEADER DELIMITER %L', '/tmp/reg_state_report.csv', '|');
-END $$;
+    BEGIN
+        update api_registration_statement SET status='approved' where id=a;
+        update api_migrant SET status='registered' where id=(select person_id from api_registration_statement where id=a);
+        RETURN 2;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN 0;
+    END;
+END;
+$$;
+
+create or replace function update_unreg_status(a integer) RETURNS INT
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    BEGIN
+        update api_unregistration_statement SET status='approved' where id=a;
+        update api_migrant SET status='unregistered' where id=(select person_id from api_unregistration_statement where id=a);
+        RETURN 2;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN 0;
+    END;
+END;
+$$;
+
+/* Вызывать ее через Select "update_status"(id); */

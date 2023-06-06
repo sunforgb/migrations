@@ -9,6 +9,7 @@ import { loadFonts } from "./plugins/webfontloader";
 import Axios from "axios";
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css'
+import '@mdi/font/css/materialdesignicons.css'
 
 Axios.defaults.baseUrl = 'http://185.231.153.231:8000'
 

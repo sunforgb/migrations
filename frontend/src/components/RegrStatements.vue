@@ -9,7 +9,7 @@
                                 <span>Заявки на регистрацию по месту жительства</span>
                             </v-col>
                             <v-col cols="12" sm="6" md="4">
-                                <v-btn color="blue-darken-1" variant="text" @click="createReport">Сформировать отчет</v-btn>
+                                <v-btn :disabled="analyst" color="blue-darken-1" variant="text" @click="createReport">Сформировать отчет</v-btn>
                             </v-col>
                         </v-row>
                     </v-card-title>
@@ -24,6 +24,16 @@
                             :items-length="totalItemsStatements"
                             @update:options="optionStatements= $event"
                         >
+                        <template v-slot:item.approve="{ item }">
+                            <v-btn v-if="(item.raw.status != 'approved')&&(item.raw.status != 'declined')" color="success" size="small" outlined class="me-2" @click="updateAppRegStatus(item.raw)">
+                                Одобрить
+                            </v-btn>
+                        </template>
+                        <template v-slot:item.decline="{ item }">
+                            <v-btn v-if="(item.raw.status != 'approved')&&(item.raw.status != 'declined')" color="red" size="small" outlined class="me-2" @click="updateDecRegStatus(item.raw)">
+                                Отклонить
+                            </v-btn>
+                        </template>
                         <template v-slot:bottom>
                                 <v-row cols="12" justify="end" align="end">
                                     <v-col cols="7">
@@ -54,7 +64,6 @@ import axios from 'axios'
 
 export default {
     name: "RegrStatements",
-    props: ['user_type'],
     data () {
         return {
             optionStatements: {
@@ -82,15 +91,20 @@ export default {
                 {title: 'Выдан до', key: 'person.document.expires_when'},
                 {title: 'Статус гражданина', key: 'person.status'},
                 {title: 'Дата подачи', key: 'date'},
-                {title: 'Текущий статус', key: 'status'}
+                {title: 'Текущий статус', key: 'status'},
+                {title: "Одобрить", key: "approve"},
+                {title: "Отклонить", key: "decline"},
             ],
             totalPagesStatements: 0,
             pageSizesStatements: [1,2,5,10,20],
             totalItemsStatements: 0,
-            
+            analyst: false
         }
     },
     beforeCreate() {
+        if (this.$store.state.user_type == "analyst"){
+            this.analyst = true
+        }
     },
     methods: {
         getParamsStatements() {
@@ -111,6 +125,8 @@ export default {
                 if (response.data.count <= (this.optionStatements['itemsPerPage'] * (this.totalPagesStatements - 1))){
                     this.totalPagesStatements = this.totalPagesStatements - 1
                 }
+            }).catch(() => {
+                console.log('not authorized')
             })
         },
         loadItemsStatements(){
@@ -119,7 +135,29 @@ export default {
             this.loadingStatements = false;
         },
         createReport(){
-
+            axios.get('/api/reportRegStatements').then(response => {
+                console.log(response)
+            }).catch(error => {
+                console.log(error)
+            })
+        },
+        updateAppRegStatus(item) {
+            console.log(item)
+            axios.patch('/api/updateAppRegStatus/', {'id': item.id}).then(response => {
+                console.log(response)
+            }).catch(error => {
+                console.log(error)
+            })
+            this.loadItemsStatements();
+        },
+        updateDecRegStatus(item) {
+            console.log(item)
+            axios.patch('/api/updateDecRegStatus/', {'id': item.id}).then(response => {
+                console.log(response)
+            }).catch(error => {
+                console.log(error)
+            })
+            this.loadItemsStatements();
         },
 
     },

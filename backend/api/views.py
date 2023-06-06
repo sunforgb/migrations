@@ -1,4 +1,5 @@
 from rest_framework import generics, viewsets, status, views, filters
+from django.db import connection
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth.hashers import make_password
@@ -7,16 +8,15 @@ import django_filters.rest_framework
 from api.models import *
 from api.serializers import *
 
-
-def method_permission_classes(classes):
-    def decorator(func):
-        def decorated_func(self, *args, **kwargs):
-            self.permission_classes = classes
-            # this call is needed for request permissions
-            self.check_permissions(self.request)
-            return func(self, *args, **kwargs)
-        return decorated_func
-    return decorator
+# def method_permission_classes(classes):
+#     def decorator(func):
+#         def decorated_func(self, *args, **kwargs):
+#             self.permission_classes = classes
+#             # this call is needed for request permissions
+#             self.check_permissions(self.request)
+#             return func(self, *args, **kwargs)
+#         return decorated_func
+#     return decorator
 
 class EmployeeViewSet(viewsets.ModelViewSet): 
     queryset = Employee.objects.all()
@@ -109,19 +109,22 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 class PhoneViewSet(viewsets.ModelViewSet):
     queryset = Phone.objects.all()
     serializer_class = PhoneSerializer
+    permission_classes = [IsAuthenticated] 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
+    permission_classes = [IsAuthenticated] 
 
 class DocViewSet(viewsets.ModelViewSet):
     queryset = Doc_migr_pers.objects.all()
     serializer_class = DocSerializer
-
+    permission_classes = [IsAuthenticated] 
 
 class MigrantViewSet(viewsets.ModelViewSet):
     queryset = Migrant.objects.all()
     serializer_class = MigrantSerializerList
+    permission_classes = [IsAuthenticated] 
 
     def create(self, request, *args, **kwargs):
         q = request.data
@@ -183,8 +186,25 @@ class MigrantViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Migrant Patched'}, status=status.HTTP_206_PARTIAL_CONTENT)
 
 class RegistrationStatementViewSet(viewsets.ModelViewSet):
-    queryset = Registration_Statement.objects.all()
+    # queryset = Registration_Statement.objects.all()
     serializer_class = RegistrationStatemenetSerializerList
+
+    def get_queryset(self):
+        with connection.cursor() as cursor:
+            if self.request.user.user_type == 'admin':
+                print("Admin")
+                return Registration_Statement.objects.all()
+            if self.request.user.user_type == 'employee':
+                cursor.execute(f'SET ROLE employee_{self.request.user.id}')
+                print("Employee")
+                return Registration_Statement.objects.filter(status="pending")
+            if self.request.user.user_type == 'department_dir':
+                cursor.execute(f'SET ROLE department_dir_{self.request.user.id}')
+                print("Department_dir")
+                return Registration_Statement.objects.filter(status="approval")
+            if self.request.user.user_type == 'analyst':
+                cursor.execute(f'SET ROLE analyst')
+                return Registration_Statement.objects.all()
 
     def create(self, request, *args, **kwargs):
         q = request.data
@@ -192,6 +212,13 @@ class RegistrationStatementViewSet(viewsets.ModelViewSet):
         if (type(q) != type(dict())):
             dict_ = {k: q.getlist(k) if len(q.getlist(k))>1 else v for k, v in q.items()}
         serializer = RegistrationStatementSerializer(data=dict_)
+        with connection.cursor() as cursor:
+            if self.request.user.user_type == 'employee':
+                cursor.execute(f'SET ROLE employee_{self.request.user.id}')
+            if self.request.user.user_type == 'department_dir':
+                cursor.execute(f'SET ROLE department_dir_{self.request.user.id}')
+            if self.request.user.user_type == 'analyst':
+                cursor.execute(f'SET ROLE analyst')
         if serializer.is_valid():
             department = Department.objects.get(address=dict_.get('department'))
             if department is None:
@@ -206,8 +233,24 @@ class RegistrationStatementViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
 
 class UnRegistrationStatementViewSet(viewsets.ModelViewSet):
-    queryset = Unregistration_Statement.objects.all()
+    # queryset = Unregistration_Statement.objects.all()
     serializer_class = RegistrationStatemenetSerializerList
+
+    def get_queryset(self):
+        with connection.cursor() as cursor:
+            if self.request.user.user_type == 'admin':
+                print("Admin")
+                return Unregistration_Statement.objects.all()
+            if self.request.user.user_type == 'employee':
+                cursor.execute(f'SET ROLE employee_{self.request.user.id}')
+                print("Employee")
+                return Unregistration_Statement.objects.filter(status="pending")
+            if self.request.user.user_type == 'department_dir':
+                cursor.execute(f'SET ROLE department_dir_{self.request.user.id}')
+                print("Department_dir")
+                return Unregistration_Statement.objects.filter(status="approval")
+            if self.request.user.user_type == 'analyst':
+                return Unregistration_Statement.objects.all()
 
     def create(self, request, *args, **kwargs):
         q = request.data
@@ -215,6 +258,13 @@ class UnRegistrationStatementViewSet(viewsets.ModelViewSet):
         if (type(q) != type(dict())):
             dict_ = {k: q.getlist(k) if len(q.getlist(k))>1 else v for k, v in q.items()}
         serializer = RegistrationStatementSerializer(data=dict_)
+        with connection.cursor() as cursor:
+            if self.request.user.user_type == 'employee':
+                cursor.execute(f'SET ROLE employee_{self.request.user.id}')
+            if self.request.user.user_type == 'department_dir':
+                cursor.execute(f'SET ROLE department_dir_{self.request.user.id}')
+            if self.request.user.user_type == 'analyst':
+                cursor.execute(f'SET ROLE analyst')
         if serializer.is_valid():
             department = Department.objects.get(address=dict_.get('department'))
             if department is None:
@@ -227,5 +277,103 @@ class UnRegistrationStatementViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response({'message': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
+
+class ReportRegStatement(views.APIView):
+
+    def get(self, request, format=None):
+        try:
+            user_type = request.user.user_type
+        except AttributeError:
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        if ((user_type != 'admin') and (user_type != 'analyst')):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        with connection.cursor() as cur:
+            cur.execute('CALL report_registration_statement()')
+        return Response({'message': user_type}, status=status.HTTP_200_OK)
+
+class ReportUnRegStatements(views.APIView):
+
+    def get(self, request, format=None):
+        try:
+            user_type = request.user.user_type
+        except AttributeError:
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        if ((user_type != 'admin') and (user_type != 'analyst')):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        with connection.cursor() as cur:
+            cur.execute('CALL report_unregistration_statement()')
+        return Response({'message': user_type}, status=status.HTTP_200_OK)
+    
+class UpdateAppRegStatus(views.APIView):
+
+    def patch(self, request, format=None):
+        try:
+            user_type = request.user.user_type
+        except AttributeError:
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        if (user_type == 'employee'):
+            print(request.data)
+            id_doc = request.data['id']
+            state = Registration_Statement.objects.get(id=id_doc)
+            state.status = 'approval'
+            state.save()
+            return Response({'message': user_type}, status=status.HTTP_200_OK)
+        if (user_type != 'department_dir'):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+        id = request.data['id']
+        with connection.cursor() as cur:
+            cur.execute(f'Select "update_reg_status"({id})')
+        return Response({'message': user_type}, status=status.HTTP_200_OK)
+
+class UpdateAppUnRegStatus(views.APIView):
+
+    def patch(self, request, format=None):
+        try:
+            user_type = request.user.user_type
+        except AttributeError:
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        if (user_type == 'employee'):
+            id_doc = request.data['id']
+            state = Unregistration_Statement.objects.get(id=id_doc)
+            state.status = 'approval'
+            state.save()
+            return Response({'message': user_type}, status=status.HTTP_200_OK)
+        if (user_type != 'department_dir'):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+        id = request.data['id']
+        with connection.cursor() as cur:
+            cur.execute(f'Select "update_unreg_status"({id})')
+        return Response({'message': user_type}, status=status.HTTP_200_OK)
+
+class UpdateDecRegStatus(views.APIView):
+
+    def patch(self, request, format=None):
+        try:
+            user_type = request.user.user_type
+        except AttributeError:
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        id_doc = request.data['id']
+        state = Registration_Statement.objects.get(id=id_doc)
+        state.status = "declined"
+        state.save()
+        return Response({'message': user_type}, status=status.HTTP_200_OK)
+
+class UpdateDecUnRegStatus(views.APIView):
+
+    def patch(self, request, format=None):
+        try:
+            user_type = request.user.user_type
+        except AttributeError:
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        id_doc = request.data['id']
+        state = Unregistration_Statement.objects.get(id=id_doc)
+        state.status = "declined"
+        state.save()
+        with connection.cursor() as cur:
+            cur.execute(f'Select "update_unreg_status"({id})')
+        return Response({'message': user_type}, status=status.HTTP_200_OK)
+
 
 # Create your views here.
