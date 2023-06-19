@@ -45,30 +45,6 @@ GRANT SELECT ON api_unregistration_statement to analyst;
 
 
 
-                    List of relations
- Schema |             Name             | Type  |  Owner   
---------+------------------------------+-------+----------
- public | api_citizenship              | table | postgres
- public | api_department               | table | postgres
- public | api_doc_migr_pers            | table | postgres
- public | api_employee                 | table | postgres
- public | api_migrant                  | table | postgres
- public | api_myuser                   | table | postgres
- public | api_myuser_department        | table | postgres
- public | api_myuser_groups            | table | postgres
- public | api_myuser_user_permissions  | table | postgres
- public | api_phone                    | table | postgres
- public | api_registration_statement   | table | postgres
- public | api_unregistration_statement | table | postgres
- public | auth_group                   | table | postgres
- public | auth_group_permissions       | table | postgres
- public | auth_permission              | table | postgres
- public | django_admin_log             | table | postgres
- public | django_content_type          | table | postgres
- public | django_migrations            | table | postgres
- public | django_session               | table | postgres
-
-
 CREATE FUNCTION create_new_department_dir() RETURNS TRIGGER AS $create_new_department_dir$
     BEGIN
         EXECUTE format('CREATE ROLE department_dir_%s WITH LOGIN INHERIT', NEW.id);
@@ -212,5 +188,3 @@ BEGIN
     END;
 END;
 $$;
-
-/* Вызывать ее через Select "update_status"(id); */
